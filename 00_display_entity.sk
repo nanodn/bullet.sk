@@ -1,0 +1,142 @@
+import:
+    ch.njol.skript.Skript
+    ch.njol.skript.util.Version
+    org.bukkit.entity.BlockDisplay
+    org.bukkit.entity.Display
+    org.bukkit.entity.EntityType
+    org.bukkit.util.Transformation
+    org.joml.AxisAngle4f
+    org.joml.Quaternionf
+    org.joml.Vector3f
+
+options:
+    # set this to false to disable the version warning.
+    skript_version_warning: true
+
+on load:
+    parse if {@skript_version_warning} is true:
+        Skript.getVersion().isSmallerThan(new Version(2, 10)) is false
+        Skript.warning("Skript 2.10+ has display entity support. You should rework your scripts to use them instead.")
+
+function d_axisAngle4f(x: objects) :: object:
+    if all:
+        size of {_x::*} = 2
+        {_x::1} is a number
+    then:
+        set {_v} to {_x::2}
+        if {_v} is a vector:
+            set {_v} to d_vector3f({_v})
+        if {_v} is an instance of Vector3f:
+            return new AxisAngle4f({_x::1}, {_v})
+    if size of {_x::*} = 4:
+        return new AxisAngle4f({_x::1}, {_x::2}, {_x::3}, {_x::4})
+    return {_null}
+
+function d_fromAxisAngle4f(aa: object) :: objects:
+    {_aa} is an instance of AxisAngle4f
+    return ({_aa}.angle, vector({_aa}.x, {_aa}.y, {_aa}.z))
+
+function d_quaternionf(x: objects) :: object:
+    if size of {_x::*} = 1:
+        if any:
+            {_x::1} is an instance of AxisAngle4f
+            {_x::1} is an instance of Quaternionf
+        then:
+            return new Quaternionf({_x::1})
+    if size of {_x::*} = 4:
+        return new Quaternionf({_x::1}, {_x::2}, {_x::3}, {_x::4})
+    return {_null}
+
+function d_fromQuaternionf(quat: object) :: numbers:
+    {_quat} is an instance of Quaternionf
+    return ({_quat}.x, {_quat}.y, {_quat}.z, {_quat}.w)
+
+function d_vector3f(x: objects) :: object:
+    if size of {_x::*} = 1:
+        if {_x::1} is a vector:
+            return new Vector3f(x of {_x::1}, y of {_x::1}, z of {_x::1})
+        if {_x::1} is an instance of Vector3f:
+            return {_x::1}
+    if size of {_x::*} = 3:
+        return new Vector3f({_x::1}, {_x::2}, {_x::3})
+    return {_null}
+
+function d_fromVector3f(vector: object) :: vector:
+    {_vector} is an instance of Vector3f
+    return vector({_vector}.x, {_vector}.y, {_vector}.z)
+
+function d_transformation(translation: object = {_null}, leftRotation: object = {_null}, scale: object = {_null}, rightRotation: object = {_null}) :: object:
+    if {_translation} is not set:
+        set {_translation} to vector(0, 0, 0)
+    if {_leftRotation} is not set:
+        set {_leftRotation} to d_quaternionf(0, 0, 0, 1)
+    if {_scale} is not set:
+        set {_scale} to vector(1, 1, 1)
+    if {_rightRotation} is not set:
+        set {_rightRotation} to d_quaternionf(0, 0, 0, 1)
+    return new Transformation(d_vector3f({_translation}), {_leftRotation}, d_vector3f({_scale}), {_rightRotation})
+
+object property [reflect] [transform[ation]] (1¦translation|2¦scale):
+    return type: vector
+    get:
+        expr-1 is an instance of Transformation
+        if parse mark is 1:
+            return d_fromVector3f((expr-1).getTranslation())
+        if parse mark is 2:
+            return d_fromVector3f((expr-1).getScale())
+
+object property [reflect] [transform[ation]] (1¦left|2¦right) rot[ation]:
+    return type: object
+    get:
+        expr-1 is an instance of Transformation
+        if parse mark is 1:
+            return (expr-1).getLeftRotation()
+        if parse mark is 2:
+            return (expr-1).getRightRotation()
+
+entity property [reflect] display[[ ]entity] transform[ation]:
+    return type: object
+    get:
+        expr-1 is an instance of Display
+        return (expr-1).[Display]getTransformation()
+    set:
+        expr-1 is an instance of Display
+        (expr-1).[Display]setTransformation(change value)
+
+entity property [reflect] display[[ ]entity] (1¦interpolation delay|2¦interpolation duration|3¦teleport[ation] duration):
+    return type: number
+    get:
+        expr-1 is an instance of Display
+        if parse mark is 1:
+            return (expr-1).[Display]getInterpolationDelay()
+        if parse mark is 2:
+            return (expr-1).[Display]getInterpolationDuration()
+        if parse mark is 3:
+            return (expr-1).[Display]getTeleportDuration()
+    set:
+        expr-1 is an instance of Display
+        if parse mark is 1:
+            (expr-1).[Display]setInterpolationDelay(change value)
+        if parse mark is 2:
+            (expr-1).[Display]setInterpolationDuration(change value)
+        if parse mark is 3:
+            (expr-1).[Display]setTeleportDuration(change value)
+
+entity property [reflect] block display[[ ]entity] block[[ ]data]:
+    return type: block data
+    get:
+        expr-1 is an instance of BlockDisplay
+        return (expr-1).[BlockDisplay]getBlock()
+    set:
+        expr-1 is an instance of BlockDisplay
+        (expr-1).[BlockDisplay]setBlock(change value)
+
+expression [reflect] [a[n]] [new] entity[( with|,)] [[entity[ ]]type] <(.*)> at [location] %location%:
+    return type: entity
+    get:
+        set {_et} to (join ((first element of regex-1) split at " ") with "_").toUpperCase()
+        set {_et} to EntityType.valueOf({_et})
+        if {_et} is not set:
+            Skript.warning("Unknown entity type %{_et}%")
+            return {_null}
+        return (world of expr-1).spawnEntity(expr-1, {_et})

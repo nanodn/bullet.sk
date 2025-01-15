@@ -1,0 +1,294 @@
+###
+installation guide:
+    download jar and native release sp library from https://github.com/stephengold/Libbulletjme/releases/latest
+        for example, jar and windows 64-bit release sp library
+            Libbulletjme-<version>.jar
+            Windows64ReleaseSp_bulletjme.dll
+    put them into plugins/skript-reflect/
+###
+
+import:
+    com.jme3.bullet.collision.PhysicsCollisionObject
+    com.jme3.bullet.collision.PhysicsRayTestResult
+    com.jme3.bullet.collision.shapes.BoxCollisionShape
+    com.jme3.bullet.collision.shapes.CollisionShape
+    com.jme3.bullet.collision.shapes.PlaneCollisionShape
+    com.jme3.bullet.collision.shapes.SphereCollisionShape
+    com.jme3.bullet.joints.PhysicsJoint
+    com.jme3.bullet.objects.PhysicsRigidBody
+    com.jme3.bullet.PhysicsSpace
+    com.jme3.bullet.util.NativeLibrary
+    com.jme3.math.Plane
+    com.jme3.math.Quaternion as JmeQuaternion
+    com.jme3.math.Vector3f as JmeVector3f
+    com.jme3.system.NativeLibraryLoader
+    java.io.File
+    java.util.TreeMap
+    java.util.logging.Level
+    org.joml.Quaternionf as McQuaternionf # should be replaced with skript's quaternion Skript 2.10+
+
+on load:
+    NativeLibraryLoader.loadLibbulletjme(true, new File("plugins/skript-reflect"), "Release", "Sp")
+    NativeLibrary.setStartupMessageEnabled(false)
+    PhysicsSpace.logger.setLevel(Level.SEVERE)
+    PhysicsRigidBody.logger2.setLevel(Level.SEVERE)
+
+# math
+
+function jmeQuaternion(x: objects) :: object:
+    if all:
+        size of {_x::*} = 1
+        {_x::1} is an instance of McQuaternionf
+    then:
+        return new JmeQuaternion({_x::1}.x, {_x::1}.y, {_x::1}.z, {_x::1}.w)
+    return new JmeQuaternion({_x::1}, {_x::2}, {_x::3}, {_x::4})
+
+function fromJmeQuaternion(quat: object) :: object:
+    {_quat} is an instance of JmeQuaternion
+    return new McQuaternionf({_quat}.x, {_quat}.y, {_quat}.z, {_quat}.w)
+
+function jmeVector3f(x: objects) :: object:
+    if all:
+        size of {_x::*} = 1
+        {_x::1} is a vector
+    then:
+        return new JmeVector3f(x of {_x::1}, y of {_x::1}, z of {_x::1})
+    return new JmeVector3f({_x::1}, {_x::2}, {_x::3})
+
+function fromJmeVector3f(vector: object) :: vector:
+    {_vector} is an instance of JmeVector3f
+    return vector({_vector}.x, {_vector}.y, {_vector}.z)
+
+###
+PhysicsSpace
+###
+
+expression [[lib]bullet[jme]] [a] [new] dbvt physics space:
+    get:
+        return new PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
+
+# it doesn't make sense to provide the list of joints for my use case but w/e
+plural object property [[lib]bullet[jme]] [physics space] (1¦rigid[ ]bodies|2¦joints):
+    get:
+        expr 1 is an instance of PhysicsSpace
+        if parse mark is 1:
+            return ...(expr 1).[PhysicsSpace]getRigidBodyList().stream()
+        if parse mark is 2:
+            return ...(expr 1).[PhysicsSpace]getJointList().stream()
+    add:
+        expr 1 is an instance of PhysicsSpace
+        if parse mark is 1:
+            change value is an instance of PhysicsRigidBody
+            (expr 1).[PhysicsSpace]addCollisionObject(change value)
+        if parse mark is 2:
+            change value is an instance of PhysicsJoint
+            (expr 1).[PhysicsSpace]addJoint(change value)
+    remove:
+        expr 1 is an instance of PhysicsSpace
+        if parse mark is 1:
+            change value is an instance of PhysicsRigidBody
+            (expr 1).[PhysicsSpace]removeCollisionObject(change value)
+        if parse mark is 2:
+            change value is an instance of PhysicsJoint
+            (expr 1).[PhysicsSpace]removeJoint(change value)
+    delete:
+        expr 1 is an instance of PhysicsSpace
+        if parse mark is 1:
+            loop ...(expr 1).[PhysicsSpace]getRigidBodyList().stream():
+                (expr 1).[PhysicsSpace]removeCollisionObject(loop-value)
+        if parse mark is 2:
+            loop ...(expr 1).[PhysicsSpace]getJointList().stream():
+                (expr 1).[PhysicsSpace]removeJoint(loop-value)
+
+effect [[lib]bullet[jme]] destroy physics space %object%:
+    trigger:
+        expr 1 is an instance of PhysicsSpace
+        (expr 1).[PhysicsSpace]destroy()
+
+effect [[lib]bullet[jme]] (tick|update) physics space %object% [(by|with)] [time [interval]] %number%[,] [and] [[max] step[s]] %integer%:
+    trigger:
+        expr 1 is an instance of PhysicsSpace
+        (expr 1).[PhysicsSpace]update(expr 2, expr 3)
+
+expression [[lib]bullet[jme]] ray[ ]trace [result[s]] in physics space %object% from %vector% to %vector%:
+    get:
+        expr 1 is an instance of PhysicsSpace
+        return ...(expr 1).rayTest(jmeVector3f(expr 2), jmeVector3f(expr 3))
+
+###
+PhysicsRayTestResult
+###
+
+object property [[lib]bullet[jme]] ray[ ]trace [result] collision object:
+    get:
+        expr 1 is an instance of PhysicsRayTestResult
+        return (expr 1).[PhysicsRayTestResult]getCollisionObject()
+
+object property [[lib]bullet[jme]] ray[ ]trace [result] hit fraction:
+    return type: number
+    get:
+        expr 1 is an instance of PhysicsRayTestResult
+        return (expr 1).[PhysicsRayTestResult]getHitFraction()
+
+object property [[lib]bullet[jme]] ray[ ]trace [result] hit normal:
+    return type: vector
+    get:
+        expr 1 is an instance of PhysicsRayTestResult
+        return fromJmeVector3f((expr 1).[PhysicsRayTestResult]getHitNormalLocal(null))
+
+###
+CollisionShape
+###
+
+expression [[lib]bullet[jme]] [a] [new] box collision shape [with] [half extent[s]] (1¦%vector%|2¦[xyz] %number%|3¦[x] %number%[,] [and] [y] %number%[,] [and] [z] %number%):
+    get:
+        if parse mark is 1:
+            return new BoxCollisionShape(jmeVector3f(expr 1))
+        if parse mark is 2:
+            return new BoxCollisionShape(expr 2)
+        if parse mark is 3:
+            return new BoxCollisionShape(expr 3, expr 4, expr 5)
+
+expression [[lib]bullet[jme]] [a] [new] spher(e|ical) collision shape [with] [radius] %number%:
+    get:
+        return new SphereCollisionShape(expr 1)
+
+expression [[lib]bullet[jme]] [a] [new] plane collision shape [with] [const[ant]] %number%:
+    get:
+        return new PlaneCollisionShape(new Plane(JmeVector3f.UNIT_Y, expr 1))
+
+object property [[lib]bullet[jme]] box collision shape half extent[s]:
+    return type: vector
+    get:
+        expr 1 is an instance of BoxCollisionShape
+        return fromJmeVector3f((expr 1).[BoxCollisionShape]getHalfExtents(null))
+
+object property [[lib]bullet[jme]] sphere collision shape radius:
+    return type: number
+    get:
+        expr 1 is an instance of SphereCollisionShape
+        return (expr 1).[SphereCollisionShape]getRadius()
+
+object property condition [a[n]] [[lib]bullet[jme]] (1¦box|2¦spher(e|ical)|3¦plane) collision shape:
+    check:
+        if parse mark is 1:
+            if expr 1 is an instance of BoxCollisionShape:
+                return true
+        else if parse mark is 2:
+            if expr 1 is an instance of SphereCollisionShape:
+                return true
+        else if parse mark is 3:
+            if expr 1 is an instance of PlaneCollisionShape:
+                return true
+        return false
+
+###
+PhysicsRigidBody
+###
+
+expression [[lib]bullet[jme]] [static] rigid[ ]body [static] mass:
+    return type: number
+    get:
+        return PhysicsRigidBody.massForStatic
+
+expression [[lib]bullet[jme]] [a] [new] rigid[ ]body [with [shape[d]]] %object%[,] [and] [with] [mass] %number%:
+    get:
+        expr 1 is an instance of CollisionShape
+        return new PhysicsRigidBody(expr 1, expr 2)
+
+object property [[lib]bullet[jme]] rigid[ ]body (pos[ition]|loc[ation]):
+    return type: vector
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return fromJmeVector3f((expr 1).[PhysicsRigidBody]getPhysicsLocation(null))
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        (expr 1).[PhysicsRigidBody]setPhysicsLocation(jmeVector3f(change value))
+
+object property [[lib]bullet[jme]] rigid[ ]body rot[ation]:
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return fromJmeQuaternion((expr 1).[PhysicsRigidBody]getPhysicsRotation(null))
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        change value is an instance of McQuaternionf
+        (expr 1).[PhysicsRigidBody]setPhysicsRotation(jmeQuaternion(change value))
+
+# note that removing a joint from one side of the it affects all sides
+plural object property [[lib]bullet[jme]] rigid[ ]body joint(s| list):
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return ...(expr 1).[PhysicsRigidBody]listJoints()
+    add:
+        expr 1 is an instance of PhysicsRigidBody
+        change value is an instance of PhysicsJoint
+        (expr 1).[PhysicsRigidBody]addJoint(change value)
+    remove:
+        expr 1 is an instance of PhysicsRigidBody
+        change value is an instance of PhysicsJoint
+        (change value).[PhysicsJoint]destroy()
+    delete:
+        expr 1 is an instance of PhysicsRigidBody
+        loop ...(expr 1).listJoints():
+            (loop-value).[PhysicsJoint]destroy()
+
+object property [[lib]bullet[jme]] rigid[ ]body collision shape:
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return (expr 1).[PhysicsRigidBody]getCollisionShape()
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        change value is an instance of CollisionShape
+        (expr 1).[PhysicsRigidBody]setCollisionShape(change value)
+
+object property [[lib]bullet[jme]] rigid[ ]body (1¦[regular]|2¦rolling|3¦spinning) friction:
+    return type: number
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        if parse mark is 1:
+            return (expr 1).[PhysicsCollisionObject]getFriction()
+        if parse mark is 2:
+            return (expr 1).[PhysicsCollisionObject]getRollingFriction()
+        if parse mark is 3:
+            return (expr 1).[PhysicsCollisionObject]getSpinningFriction()
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        if parse mark is 1:
+            (expr 1).[PhysicsCollisionObject]setFriction(change value)
+        if parse mark is 2:
+            (expr 1).[PhysicsCollisionObject]setRollingFriction(change value)
+        if parse mark is 3:
+            (expr 1).[PhysicsCollisionObject]setSpinningFriction(change value)
+    delete:
+        expr 1 is an instance of PhysicsRigidBody
+        if parse mark is 1:
+            (expr 1).[PhysicsCollisionObject]setFriction(0.5)
+        if parse mark is 2:
+            (expr 1).[PhysicsCollisionObject]setRollingFriction(0)
+        if parse mark is 3:
+            (expr 1).[PhysicsCollisionObject]setSpinningFriction(0)
+
+object property [[lib]bullet[jme]] rigid[ ]body restitution:
+    return type: number
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return (expr 1).[PhysicsCollisionObject]getRestitution()
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        (expr 1).[PhysicsCollisionObject]setRestitution(change value)
+
+object property [[lib]bullet[jme]] rigid[ ]body user (obj[ect]|data):
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return (expr 1).[PhysicsCollisionObject]getUserObject()
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        (expr 1).[PhysicsCollisionObject]setUserObject(change value)
+
+effect [[lib]bullet[jme]] apply (1¦impulse|2¦force) [effect] [(with|of)] %vector% [at] [offset] [by] %vector% to [rigid[ ]body] %object%:
+    trigger:
+        expr 3 is an instance of PhysicsRigidBody
+        if parse mark is 1:
+            (expr 3).[PhysicsRigidBody]applyImpulse(jmeVector3f(expr 1), jmeVector3f(expr 2))
+        if parse mark is 2:
+            (expr 3).[PhysicsRigidBody]applyForce(jmeVector3f(expr 1), jmeVector3f(expr 2))
