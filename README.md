@@ -2,8 +2,6 @@
 
 A Skript + Libbulletjme integration example.
 
-<video src="example.mp4" controls></video>
-
 ## Setup
 
 > Tested with Skript 2.9.4 and Paper 1.20.4. Skript 2.10 and above will have quaternion support so things will break.
