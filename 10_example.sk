@@ -97,6 +97,80 @@ command bullet_box [<number>]:
         set {_loc} to location of player
         add 1 to y-coord of {_loc}
         createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
+        
+command bullet_sphere [<number>]:
+    executable by: players
+    trigger:
+        set {_bd} to red glazed terracotta[]
+        if {space} is not set:
+            set {space} to createSpace({@py})
+        set {_r} to 0.5
+        if arg 1 > 0:
+            set {_r} to arg 1
+        set {_mass} to {_r}
+        set {_loc} to location of player
+        add 1 to y-coord of {_loc}
+        createSphere({space}, {_loc}, {_r}, {_mass}, {_bd})
+
+command bullet_castle [<number>] [<integer>]:
+    executable by: players
+    trigger:
+        set {_wools::*} to (red wool[], green wool[], blue wool[], yellow wool[], purple wool[], black wool[], white wool[])
+        if {space} is not set:
+            set {space} to createSpace({@py})
+        set {_he} to 0.5
+        if arg 1 > 0:
+            set {_he} to arg 1
+        set {_m} to {_he} * 2
+        set {_mass} to {_he}
+        set {_side} to 8
+        if arg 2 > 0:
+            set {_side} to arg 2
+        set {_loc} to location of player
+        add {_m} to y-coord of {_loc}
+        set {pause} to true
+        loop {_side} times:
+            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
+            add {_m} to x-coord of {_loc}
+        loop {_side} times:
+            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
+            add {_m} to z-coord of {_loc}
+        loop {_side} times:
+            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
+            remove {_m} from x-coord of {_loc}
+        loop {_side} times:
+            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
+            remove {_m} from z-coord of {_loc}
+        delete {pause}
+
+command bullet_jenga:
+    executable by: players
+    trigger:
+        if {space} is not set:
+            set {space} to createSpace({@py})
+        set {_loc} to location of player
+        set {_bd1} to stripped spruce wood[]
+        set {_bd2} to stripped dark oak wood[]
+        set {_he} to vector(0.5, 1.5, 0.5)
+        set {_mass} to 0.5
+        set {pause} to true
+        add 0.5 to y-coord of {_loc}
+        loop 9 times:
+            loop 3 times:
+                set {_body} to createBox({space}, {_loc}, {_he}, {_mass}, {_bd1})
+                set rigid body rotation of {_body} to d_quaternionf((d_axisAngle4f(pi / 2, vector(1, 0, 0))))
+                add 1 to x-coord of {_loc}
+            remove 2 from x-coord of {_loc}
+            add 1 to y-coord of {_loc}
+            remove 1 from z-coord of {_loc}
+            loop 3 times:
+                set {_body} to createBox({space}, {_loc}, {_he}, {_mass}, {_bd2})
+                set rigid body rotation of {_body} to d_quaternionf((d_axisAngle4f(pi / 2, vector(0, 0, 1))))
+                add 1 to z-coord of {_loc}
+            remove 1 from x-coord of {_loc}
+            add 1 to y-coord of {_loc}
+            remove 2 from z-coord of {_loc}
+        delete {pause}
 
 command bullet_toggle:
     trigger:
