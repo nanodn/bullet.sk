@@ -1,6 +1,8 @@
 options:
-    #py: -61
-    py: 100
+    # Plane Y-Coord
+    py: 0
+    # Physics world
+    world: "world"
 
 import:
     com.jme3.bullet.collision.PhysicsCollisionListener
@@ -11,7 +13,7 @@ function createBox(space: object, loc: location, halfextents: vector, mass: numb
     set {_display} to a new entity block display at {_loc}
     set block display block of {_display} to {_blockdata}
     set rigid body user object of {_body} to {_display}
-    set rigid body location of {_body} to vector of {_loc}
+    set rigid body position of {_body} to vector of {_loc}
     add {_body} to rigid bodies of {_space}
     return {_body}
 
@@ -21,7 +23,7 @@ function createSphere(space: object, loc: location, radius: number, mass: number
     set {_display} to a new entity block display at {_loc}
     set block display block of {_display} to {_blockdata}
     set rigid body user object of {_body} to {_display}
-    set rigid body location of {_body} to vector of {_loc}
+    set rigid body position of {_body} to vector of {_loc}
     add {_body} to rigid bodies of {_space}
 
 function updateSpace(space: object, world: world, py: number):
@@ -43,7 +45,7 @@ function updateSpace(space: object, world: world, py: number):
         if {_shape} is a plane collision shape:
             continue
         # delete rigid bodies far away from center
-        if vector length of ((rigid body location of {_body}) - vector(0, {_py}, 0)) > 100:
+        if vector length of ((rigid body position of {_body}) - vector(0, {_py}, 0)) > 100:
             set {_o} to rigid body user object of {_body}
             if {_o} is set:
                 kill {_o}
@@ -65,7 +67,7 @@ function updateSpace(space: object, world: world, py: number):
         set display interpolation duration of {_display} to 1
         set display teleport duration of {_display} to 1
         set display transformation of {_display} to {_transformation}
-        teleport {_display} to location of (rigid body location of {_body}) in {_world}
+        teleport {_display} to location of (rigid body position of {_body}) in {_world}
     update physics space {_space} by time interval 0.05 and steps 5
 
 function destroySpace(space: object):
@@ -96,80 +98,6 @@ command bullet_box [<number>]:
         add 1 to y-coord of {_loc}
         createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
 
-command bullet_sphere [<number>]:
-    executable by: players
-    trigger:
-        set {_bd} to red glazed terracotta[]
-        if {space} is not set:
-            set {space} to createSpace({@py})
-        set {_r} to 0.5
-        if arg 1 > 0:
-            set {_r} to arg 1
-        set {_mass} to {_r}
-        set {_loc} to location of player
-        add 1 to y-coord of {_loc}
-        createSphere({space}, {_loc}, {_r}, {_mass}, {_bd})
-
-command bullet_castle [<number>] [<integer>]:
-    executable by: players
-    trigger:
-        set {_wools::*} to (red wool[], green wool[], blue wool[], yellow wool[], purple wool[], black wool[], white wool[])
-        if {space} is not set:
-            set {space} to createSpace({@py})
-        set {_he} to 0.5
-        if arg 1 > 0:
-            set {_he} to arg 1
-        set {_m} to {_he} * 2
-        set {_mass} to {_he}
-        set {_side} to 8
-        if arg 2 > 0:
-            set {_side} to arg 2
-        set {_loc} to location of player
-        add {_m} to y-coord of {_loc}
-        set {pause} to true
-        loop {_side} times:
-            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
-            add {_m} to x-coord of {_loc}
-        loop {_side} times:
-            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
-            add {_m} to z-coord of {_loc}
-        loop {_side} times:
-            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
-            remove {_m} from x-coord of {_loc}
-        loop {_side} times:
-            createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
-            remove {_m} from z-coord of {_loc}
-        delete {pause}
-
-command bullet_jenga:
-    executable by: players
-    trigger:
-        if {space} is not set:
-            set {space} to createSpace({@py})
-        set {_loc} to location of player
-        set {_bd1} to stripped spruce wood[]
-        set {_bd2} to stripped dark oak wood[]
-        set {_he} to vector(0.5, 1.5, 0.5)
-        set {_mass} to 0.5
-        set {pause} to true
-        add 0.5 to y-coord of {_loc}
-        loop 9 times:
-            loop 3 times:
-                set {_body} to createBox({space}, {_loc}, {_he}, {_mass}, {_bd1})
-                set rigid body rotation of {_body} to d_quaternionf((d_axisAngle4f(pi / 2, vector(1, 0, 0))))
-                add 1 to x-coord of {_loc}
-            remove 2 from x-coord of {_loc}
-            add 1 to y-coord of {_loc}
-            remove 1 from z-coord of {_loc}
-            loop 3 times:
-                set {_body} to createBox({space}, {_loc}, {_he}, {_mass}, {_bd2})
-                set rigid body rotation of {_body} to d_quaternionf((d_axisAngle4f(pi / 2, vector(0, 0, 1))))
-                add 1 to z-coord of {_loc}
-            remove 1 from x-coord of {_loc}
-            add 1 to y-coord of {_loc}
-            remove 2 from z-coord of {_loc}
-        delete {pause}
-
 command bullet_toggle:
     trigger:
         if {space} is set:
@@ -192,7 +120,7 @@ command bullet_step [<integer>]:
                 set {_steps} to arg 1
             loop {_steps} times:
                 wait 1 tick
-                updateSpace({space}, world "world", {@py})
+                updateSpace({space}, world {@world}, {@py})
             if {_steps} > 1:
                 send "%executor% :: step %{_steps}% time(s)" to players
         else:
@@ -215,7 +143,7 @@ on load:
 every tick:
     if {space} is set:
         if {pause} is not true:
-            updateSpace({space}, world "world", {@py})
+            updateSpace({space}, world {@world}, {@py})
 
 on right click with blaze rod:
     if {space} is not set:
@@ -228,7 +156,7 @@ on right click with blaze rod:
     set {_body} to a new rigid body with shape {_shape} and mass 0.25
     set {_display} to a new entity block display at (player's eye location)
     set rigid body user object of {_body} to {_display}
-    set rigid body location of {_body} to vector of (player's eye location)
+    set rigid body position of {_body} to vector of (player's eye location)
     set block display block of {_display} to repeating command block[]
     add {_body} to rigid bodies of {space}
     apply impulse effect (vector in direction of player) * 2 at offset vector(0, 0.1, 0) to {_body}
