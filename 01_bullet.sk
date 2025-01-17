@@ -14,24 +14,28 @@ import:
     com.jme3.bullet.collision.shapes.CollisionShape
     com.jme3.bullet.collision.shapes.PlaneCollisionShape
     com.jme3.bullet.collision.shapes.SphereCollisionShape
+    com.jme3.bullet.joints.motors.MotorParam
+    com.jme3.bullet.joints.New6Dof
     com.jme3.bullet.joints.PhysicsJoint
     com.jme3.bullet.objects.PhysicsRigidBody
     com.jme3.bullet.PhysicsSpace
-    com.jme3.bullet.util.NativeLibrary
+    com.jme3.bullet.RotationOrder
+    com.jme3.math.Matrix3f as JmeMatrix3f
     com.jme3.math.Plane
     com.jme3.math.Quaternion as JmeQuaternion
     com.jme3.math.Vector3f as JmeVector3f
     com.jme3.system.NativeLibraryLoader
     java.io.File
-    java.util.TreeMap
     java.util.logging.Level
     org.joml.Quaternionf as McQuaternionf # should be replaced with skript's quaternion Skript 2.10+
 
+local function jmeSilence():
+    loop (PhysicsSpace.logger, PhysicsRigidBody.logger2, New6Dof.logger2):
+        (loop-value).setLevel(Level.WARNING)
+
 on load:
     NativeLibraryLoader.loadLibbulletjme(true, new File("plugins/skript-reflect"), "Release", "Sp")
-    NativeLibrary.setStartupMessageEnabled(false)
-    PhysicsSpace.logger.setLevel(Level.SEVERE)
-    PhysicsRigidBody.logger2.setLevel(Level.SEVERE)
+    jmeSilence()
 
 # math
 
@@ -41,6 +45,8 @@ function jmeQuaternion(x: objects) :: object:
         {_x::1} is an instance of McQuaternionf
     then:
         return new JmeQuaternion({_x::1}.x, {_x::1}.y, {_x::1}.z, {_x::1}.w)
+    size of {_x::*} = 4
+    {_x::1} is a number
     return new JmeQuaternion({_x::1}, {_x::2}, {_x::3}, {_x::4})
 
 function fromJmeQuaternion(quat: object) :: object:
@@ -53,11 +59,23 @@ function jmeVector3f(x: objects) :: object:
         {_x::1} is a vector
     then:
         return new JmeVector3f(x of {_x::1}, y of {_x::1}, z of {_x::1})
+    size of {_x::*} = 3
+    {_x::1} is a number
     return new JmeVector3f({_x::1}, {_x::2}, {_x::3})
 
 function fromJmeVector3f(vector: object) :: vector:
     {_vector} is an instance of JmeVector3f
     return vector({_vector}.x, {_vector}.y, {_vector}.z)
+
+function jmeMatrix3f(x: objects) :: object:
+    if all:
+        size of {_x::*} = 1
+        {_x::1} = "identity"
+    then:
+        return new JmeMatrix3f()
+    size of {_x::*} = 9
+    {_x::1} is a number
+    return new JmeMatrix3f({_x::1}, {_x::2}, {_x::3}, {_x::4}, {_x::5}, {_x::6}, {_x::7}, {_x::8}, {_x::9})
 
 ###
 PhysicsSpace
@@ -66,6 +84,15 @@ PhysicsSpace
 expression [[lib]bullet[jme]] [a] [new] dbvt physics space:
     get:
         return new PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
+
+object property [[lib]bullet[jme]] physics space gravity:
+    return type: vector
+    get:
+        expr 1 is an instance of PhysicsSpace
+        return fromJmeVector3f((expr 1).[PhysicsSpace]getGravity(null))
+    set:
+        expr 1 is an instance of PhysicsSpace
+        (expr 1).[PhysicsSpace]setGravity(jmeVector3f(change value))
 
 # it doesn't make sense to provide the list of joints for my use case but w/e
 plural object property [[lib]bullet[jme]] [physics space] (1¦rigid[ ]bodies|2¦joints):
@@ -183,7 +210,40 @@ object property condition [a[n]] [[lib]bullet[jme]] (1¦box|2¦spher(e|ical)|3¦
         return false
 
 ###
+New6Dof
+https://stephengold.github.io/Libbulletjme/lbj-en/English/new6dof.html
+###
+
+expression [[lib]bullet[jme]] [a] [new] simple new6dof joint (connecting|linking) %object%[,] [with] pivot [point] %vector% to %object%[,] [with] pivot [point] %vector%:
+    get:
+        return new New6Dof(expr 1, expr 3, jmeVector3f(expr 2), jmeVector3f(expr 4), JmeMatrix3f.IDENTITY, JmeMatrix3f.IDENTITY, RotationOrder.XYZ)
+
+expression [[lib]bullet[jme]] [a] [new] new6dof joint (connecting|linking) %object%[,] [with] pivot [point] %vector%[,] [and] [with] rot[ation ]mat[rix] %object% to %object%[,] [with] pivot [point] %vector%[,] [and] [with] rot[ation ]mat[rix] %object%[,] [and] [(with|using)] rotation order <(XYZ|XZY|YXZ|YZX|ZXY|ZYX)>:
+    get:
+        set {_order} to RotationOrder.valueOf(regex 1)
+        return new New6Dof(expr 1, expr 4, jmeVector3f(expr 2), jmeVector3f(expr 5), expr 3, expr 6, {_order})
+
+# see the link below for the list of motor parameters
+# https://stephengold.github.io/Libbulletjme/javadoc/master/com/jme3/bullet/joints/motors/MotorParam.html
+object property [[lib]bullet[jme]] new6dof joint [motor [param[eter]]] (1¦x translation|2¦y translation|3¦z translation|4¦x rotation|5¦y rotation|6¦z rotation) <(.+)>:
+    return type: number
+    parse:
+        set {_param} to MotorParam.valueOf(regex 1 in pascal case)
+        set {_dofindex} to (parse mark) - 1
+        continue
+    get:
+        return (expr 1).[New6Dof]get({_param}, {_dofindex})
+    set:
+        (expr 1).[New6Dof]set({_param}, {_dofindex}, change value)
+    delete:
+        set {_default} to 1
+        if {_dofindex} > 2:
+            set {_default} to 0
+        (expr 1).[New6Dof]set({_param}, {_dofindex}, {_default})
+
+###
 PhysicsRigidBody
+https://stephengold.github.io/Libbulletjme/lbj-en/English/rigidbody.html
 ###
 
 expression [[lib]bullet[jme]] [static] rigid[ ]body [static] mass:
@@ -195,6 +255,15 @@ expression [[lib]bullet[jme]] [a] [new] rigid[ ]body [with [shape[d]]] %object%[
     get:
         expr 1 is an instance of CollisionShape
         return new PhysicsRigidBody(expr 1, expr 2)
+
+object property [[lib]bullet[jme]] rigid[ ]body gravity:
+    return type: vector
+    get:
+        expr 1 is an instance of PhysicsRigidBody
+        return fromJmeVector3f((expr 1).[PhysicsRigidBody]getGravity(null))
+    set:
+        expr 1 is an instance of PhysicsRigidBody
+        (expr 1).[PhysicsRigidBody]setGravity(jmeVector3f(change value))
 
 object property [[lib]bullet[jme]] rigid[ ]body (pos[ition]|loc[ation]):
     return type: vector
@@ -214,7 +283,7 @@ object property [[lib]bullet[jme]] rigid[ ]body rot[ation]:
         change value is an instance of McQuaternionf
         (expr 1).[PhysicsRigidBody]setPhysicsRotation(jmeQuaternion(change value))
 
-# note that removing a joint from one side of the it affects all sides
+# note that removing a joint from one side of it affects all sides
 plural object property [[lib]bullet[jme]] rigid[ ]body joint(s| list):
     get:
         expr 1 is an instance of PhysicsRigidBody
