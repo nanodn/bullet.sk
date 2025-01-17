@@ -1,6 +1,8 @@
 options:
-    #py: -61
+    # Y of the static infinite plane (no block collisions in this example)
     py: 100
+    # Physics world
+    world: "world"
 
 import:
     com.jme3.bullet.collision.PhysicsCollisionListener
@@ -23,6 +25,97 @@ function createSphere(space: object, loc: location, radius: number, mass: number
     set rigid body user object of {_body} to {_display}
     set rigid body location of {_body} to vector of {_loc}
     add {_body} to rigid bodies of {_space}
+    return {_body}
+
+function createSpinner(space: object, loc: location, size: number) :: objects:
+    set {_jointspace} to 0
+    set {_headloc} to {_loc}
+    add 1.5 * {_size} + {_jointspace} to y-coord of {_headloc}
+    set {_bodyloc} to {_loc}
+    add 0.5 * {_size} to y-coord of {_bodyloc}
+    set {_head} to createBox({_space}, {_headloc}, vector(2 * {_size}, 0.5 * {_size}, 0.25 * {_size}), 0.1 * {_size}, blue stained glass[])
+    set {_body} to createBox({_space}, {_bodyloc}, vector(0.75 * {_size}, 0.5 * {_size}, 0.75 * {_size}), 16 * {_size}, stripped spruce wood[])
+    set {_headpivot} to vector(0, 0, 0)
+    set {_bodypivot} to vector(0, {_size} + {_jointspace}, 0)
+    # simple syntax: (default rotation order is xyz. it will create GIMBAL LOCK in this example and make you waste 2 days!)
+    #set {_joint} to a new simple new6dof joint linking {_head} with pivot {_headpivot} to {_body} with pivot {_bodypivot} to joints of {_space}
+    # big syntax:
+    set {_joint} to a new new6dof joint linking {_head} with pivot {_headpivot}, rotmat jmeMatrix3f("identity") to {_body} with pivot {_bodypivot}, rotmat jmeMatrix3f("identity") using rotation order yxz
+    set new6dof joint motor parameter x rotation lower limit of {_joint} to 0
+    set new6dof joint motor parameter x rotation upper limit of {_joint} to 0
+    set new6dof joint motor parameter z rotation lower limit of {_joint} to 0
+    set new6dof joint motor parameter z rotation upper limit of {_joint} to 0
+    set new6dof joint parameter y rotation target velocity of {_joint} to 2
+    set {_motor} to new6dof joint y rotation motor of {_joint}
+    set new6dof rotation motor motor state of {_motor} to true
+    add {_joint} to joints of {_space}
+    add {_head} to {_ret::*}
+    add {_body} to {_ret::*}
+    return {_ret::*}
+
+function createHuman(space: object, loc: location, size: number, bd: objects) :: objects:
+    if size of {_bd::*} is not equal to 6:
+        stop
+    set {_pixelmult} to 1 / 16
+    set {_mult} to {_size} * {_pixelmult}
+    set {_jointspace} to 0.01
+
+    # dimensions
+    set {_headdim} to vector(8 * {_mult}, 8 * {_mult}, 8 * {_mult}) * 0.5
+    set {_bodydim} to vector(8 * {_mult}, 12 * {_mult}, 4 * {_mult}) * 0.5
+    set {_legsdim} to vector(4 * {_mult}, 12 * {_mult}, 4 * {_mult}) * 0.5
+    set {_armsdim} to vector(4 * {_mult}, 12 * {_mult}, 4 * {_mult}) * 0.5
+
+    # locations
+    set {_headloc} to {_loc}
+    add (12 + 12 + 4) * {_mult} to y-coord of {_headloc}
+    set {_bodyloc} to {_loc}
+    add (12 + 6) * {_mult} to y-coord of {_bodyloc}
+    set {_rightlegloc} to {_loc}
+    add 6 * {_mult} to y-coord of {_rightlegloc}
+    set {_leftlegloc} to {_rightlegloc}
+    add 2 * {_mult} to x-coord of {_rightlegloc}
+    remove 2 * {_mult} from x-coord of {_leftlegloc}
+    set {_rightarmloc} to {_loc}
+    add (12 + 6) * {_mult} to y-coord of {_rightarmloc}
+    set {_leftarmloc} to {_rightarmloc}
+    add (4 + 2) * {_mult} to x-coord of {_rightarmloc}
+    remove (4 + 2) * {_mult} from x-coord of {_leftarmloc}
+
+    # bodies
+    set {_head} to createBox({_space}, {_headloc}, {_headdim}, 0.1 * {_size}, {_bd::1})
+    set {_body} to createBox({_space}, {_bodyloc}, {_bodydim}, 0.25 * {_size}, {_bd::2})
+    set {_rightleg} to createBox({_space}, {_rightlegloc}, {_legsdim}, 0.2 * {_size}, {_bd::3})
+    set {_leftleg} to createBox({_space}, {_leftlegloc}, {_legsdim}, 0.2 * {_size}, {_bd::4})
+    set {_rightarm} to createBox({_space}, {_rightarmloc}, {_armsdim}, 0.15 * {_size}, {_bd::5})
+    set {_leftarm} to createBox({_space}, {_leftarmloc}, {_armsdim}, 0.15 * {_size}, {_bd::6})
+
+    # joints
+    set {_headpivot} to vector(0, -1 * ((y of {_headdim}) + {_jointspace}), 0)
+    set {_bodyheadpivot} to vector(0, (y of {_bodydim}), 0)
+    add simple new6dof joint linking {_head} with pivot {_headpivot} to {_body} with pivot {_bodyheadpivot} to joints of {_space}
+
+    set {_rightlegpivot} to vector(x of {_legsdim}, (y of {_legsdim}) + {_jointspace}, 0)
+    set {_leftlegpivot} to vector(-1 * x of {_rightlegpivot}, y of {_rightlegpivot}, z of {_rightlegpivot})
+    set {_bodyrightlegpivot} to vector(x of {_bodydim}, -1 * ((y of {_bodydim}) + {_jointspace}), 0)
+    set {_bodyleftlegpivot} to vector(-1 * x of {_bodyrightlegpivot}, y of {_bodyrightlegpivot}, z of {_bodyrightlegpivot})
+    add simple new6dof joint linking {_body} with pivot {_bodyrightlegpivot} to {_rightleg} with pivot {_rightlegpivot} to joints of {_space}
+    add simple new6dof joint linking {_body} with pivot {_bodyleftlegpivot} to {_leftleg} with pivot {_leftlegpivot} to joints of {_space}
+
+    set {_rightarmpivot} to vector(-1 * ((x of {_armsdim}) + {_jointspace}), y of {_armsdim}, 0)
+    set {_leftarmpivot} to vector(-1 * x of {_rightarmpivot}, y of {_rightarmpivot}, z of {_rightarmpivot})
+    set {_bodyrightarmpivot} to vector((x of {_bodydim}) + {_jointspace}, y of {_bodydim}, 0)
+    set {_bodyleftarmpivot} to vector(-1 * x of {_bodyrightarmpivot}, y of {_bodyrightarmpivot}, z of {_bodyrightarmpivot})
+    add simple new6dof joint linking {_body} with pivot {_bodyrightarmpivot} to {_rightarm} with pivot {_rightarmpivot} to joints of {_space}
+    add simple new6dof joint linking {_body} with pivot {_bodyleftarmpivot} to {_leftarm} with pivot {_leftarmpivot} to joints of {_space}
+
+    add {_head} to {_ret::*}
+    add {_body} to {_ret::*}
+    add {_rightleg} to {_ret::*}
+    add {_leftleg} to {_ret::*}
+    add {_rightarm} to {_ret::*}
+    add {_leftarm} to {_ret::*}
+    return {_ret::*}
 
 function updateSpace(space: object, world: world, py: number):
     #create section with {_proxy}, {_event} stored in {_m::collision}:
@@ -56,6 +149,8 @@ function updateSpace(space: object, world: world, py: number):
             set {_v} to vector({_radius}, {_radius}, {_radius})
         else:
             stop
+        if rigid body user object of {_body} is not set:
+            continue
         set {_rotation} to rigid body rotation of {_body}
         set {_scale} to d_vector3f({_v}).mul(2)
         set {_translation} to d_vector3f({_v}).mul(-1).rotate({_rotation})
@@ -66,7 +161,7 @@ function updateSpace(space: object, world: world, py: number):
         set display teleport duration of {_display} to 1
         set display transformation of {_display} to {_transformation}
         teleport {_display} to location of (rigid body location of {_body}) in {_world}
-    update physics space {_space} by time interval 0.05 and steps 5
+    update physics space {_space} by time interval 0.05 and steps 4
 
 function destroySpace(space: object):
     loop rigid bodies of {_space}:
@@ -126,6 +221,7 @@ command bullet_castle [<number>] [<integer>]:
             set {_side} to arg 2
         set {_loc} to location of player
         add {_m} to y-coord of {_loc}
+        set {_pause} to {pause}
         set {pause} to true
         loop {_side} times:
             createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
@@ -139,7 +235,7 @@ command bullet_castle [<number>] [<integer>]:
         loop {_side} times:
             createBox({space}, {_loc}, vector({_he}, {_he}, {_he}), {_mass}, random element out of {_wools::*})
             remove {_m} from z-coord of {_loc}
-        delete {pause}
+        set {pause} to {_pause}
 
 command bullet_jenga:
     executable by: players
@@ -151,6 +247,7 @@ command bullet_jenga:
         set {_bd2} to stripped dark oak wood[]
         set {_he} to vector(0.5, 1.5, 0.5)
         set {_mass} to 0.5
+        set {_pause} to {pause}
         set {pause} to true
         add 0.5 to y-coord of {_loc}
         loop 9 times:
@@ -168,7 +265,33 @@ command bullet_jenga:
             remove 1 from x-coord of {_loc}
             add 1 to y-coord of {_loc}
             remove 2 from z-coord of {_loc}
-        delete {pause}
+        set {pause} to {_pause}
+
+command bullet_spinner [<number>]:
+    executable by: players
+    trigger:
+        if {space} is not set:
+            set {space} to createSpace({@py})
+        set {_size} to 1
+        if arg-1 is set:
+            set {_size} to arg-1
+        set {_pause} to {pause}
+        set {_parts::*} to createSpinner({space}, player's location, {_size})
+        set {pause} to {_pause}
+        set {_joint} to first element of rigid body joints of {_parts::1}
+
+command bullet_human [<number>]:
+    executable by: players
+    trigger:
+        set {_bd::*} to (chain command block[], beacon[], glass[], glass[], glass[], glass[])
+        if {space} is not set:
+            set {space} to createSpace({@py})
+        set {_size} to 1
+        if arg-1 is set:
+            set {_size} to arg-1
+        set {_pause} to {pause}
+        createHuman({space}, player's location, {_size}, {_bd::*})
+        set {pause} to {_pause}
 
 command bullet_toggle:
     trigger:
@@ -192,7 +315,7 @@ command bullet_step [<integer>]:
                 set {_steps} to arg 1
             loop {_steps} times:
                 wait 1 tick
-                updateSpace({space}, world "world", {@py})
+                updateSpace({space}, world {@world}, {@py})
             if {_steps} > 1:
                 send "%executor% :: step %{_steps}% time(s)" to players
         else:
@@ -215,7 +338,7 @@ on load:
 every tick:
     if {space} is set:
         if {pause} is not true:
-            updateSpace({space}, world "world", {@py})
+            updateSpace({space}, world {@world}, {@py})
 
 on right click with blaze rod:
     if {space} is not set:
@@ -231,7 +354,7 @@ on right click with blaze rod:
     set rigid body location of {_body} to vector of (player's eye location)
     set block display block of {_display} to repeating command block[]
     add {_body} to rigid bodies of {space}
-    apply impulse effect (vector in direction of player) * 2 at offset vector(0, 0.1, 0) to {_body}
+    apply impulse effect (vector in direction of player) * 4 at offset vector(0, 0.1, 0) to {_body}
 
 on left click with blaze rod:
     if {space} is set:
