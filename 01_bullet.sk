@@ -15,6 +15,8 @@ import:
     com.jme3.bullet.collision.shapes.PlaneCollisionShape
     com.jme3.bullet.collision.shapes.SphereCollisionShape
     com.jme3.bullet.joints.motors.MotorParam
+    com.jme3.bullet.joints.motors.RotationMotor
+    com.jme3.bullet.joints.motors.TranslationMotor
     com.jme3.bullet.joints.New6Dof
     com.jme3.bullet.joints.PhysicsJoint
     com.jme3.bullet.objects.PhysicsRigidBody
@@ -201,10 +203,10 @@ object property condition [a[n]] [[lib]bullet[jme]] (1¦box|2¦spher(e|ical)|3¦
         if parse mark is 1:
             if expr 1 is an instance of BoxCollisionShape:
                 return true
-        else if parse mark is 2:
+        if parse mark is 2:
             if expr 1 is an instance of SphereCollisionShape:
                 return true
-        else if parse mark is 3:
+        if parse mark is 3:
             if expr 1 is an instance of PlaneCollisionShape:
                 return true
         return false
@@ -218,14 +220,14 @@ expression [[lib]bullet[jme]] [a] [new] simple new6dof joint (connecting|linking
     get:
         return new New6Dof(expr 1, expr 3, jmeVector3f(expr 2), jmeVector3f(expr 4), JmeMatrix3f.IDENTITY, JmeMatrix3f.IDENTITY, RotationOrder.XYZ)
 
-expression [[lib]bullet[jme]] [a] [new] new6dof joint (connecting|linking) %object%[,] [with] pivot [point] %vector%[,] [and] [with] rot[ation ]mat[rix] %object% to %object%[,] [with] pivot [point] %vector%[,] [and] [with] rot[ation ]mat[rix] %object%[,] [and] [(with|using)] rotation order <(XYZ|XZY|YXZ|YZX|ZXY|ZYX)>:
+expression [[lib]bullet[jme]] [a] [new] new6dof joint (connecting|linking) %object%[,] [with] pivot [point] %vector%[,] [and] [with] rot[ation ]mat[rix] %object% to %object%[,] [with] pivot [point] %vector%[,] [and] [with] rot[ation ]mat[rix] %object%[,] [and] [(with|using)] rotation order <(xyz|xzy|yxz|yzx|zxy|zyx)>:
     get:
-        set {_order} to RotationOrder.valueOf(regex 1)
+        set {_order} to RotationOrder.valueOf(regex 1 in upper case)
         return new New6Dof(expr 1, expr 4, jmeVector3f(expr 2), jmeVector3f(expr 5), expr 3, expr 6, {_order})
 
 # see the link below for the list of motor parameters
 # https://stephengold.github.io/Libbulletjme/javadoc/master/com/jme3/bullet/joints/motors/MotorParam.html
-object property [[lib]bullet[jme]] new6dof joint [motor [param[eter]]] (1¦x translation|2¦y translation|3¦z translation|4¦x rotation|5¦y rotation|6¦z rotation) <(.+)>:
+object property [[lib]bullet[jme]] new6dof joint [motor] param[eter] (1¦x translation|2¦y translation|3¦z translation|4¦x rotation|5¦y rotation|6¦z rotation) <(.+)>:
     return type: number
     parse:
         set {_param} to MotorParam.valueOf(regex 1 in pascal case)
@@ -236,10 +238,85 @@ object property [[lib]bullet[jme]] new6dof joint [motor [param[eter]]] (1¦x tra
     set:
         (expr 1).[New6Dof]set({_param}, {_dofindex}, change value)
     delete:
-        set {_default} to 1
+        set {_default} to {_param}.[MotorParam]defaultForTranslationMotor()
         if {_dofindex} > 2:
-            set {_default} to 0
+            set {_default} to {_param}.[MotorParam]defaultForRotationMotor()
         (expr 1).[New6Dof]set({_param}, {_dofindex}, {_default})
+
+object property [[lib]bullet[jme]] new6dof joint translation motor:
+    get:
+        return (expr 1).[New6Dof]getTranslationMotor()
+
+object property [[lib]bullet[jme]] new6dof joint (1¦x|2¦y|3¦z) [axis] rotation motor:
+    get:
+        return (expr 1).[New6Dof]getRotationMotor((parse mark) - 1)
+
+###
+TranslationMotor
+RotationMotor
+###
+
+object property [[lib]bullet[jme]] new6dof translation motor <(x|y|z)> [axis] (1¦motor|2¦servo|3¦spring|4¦stiffness|5¦damping) state:
+    return type: boolean
+    parse:
+        if regex 1 is "x":
+            set {_axis} to 0
+        if regex 1 is "y":
+            set {_axis} to 1
+        if regex 1 is "z":
+            set {_axis} to 2
+        continue
+    get:
+        expr 1 is an instance of TranslationMotor
+        if parse mark is 1:
+            return (expr 1).isMotorEnabled({_axis})
+        if parse mark is 2:
+            return (expr 1).isServoEnabled({_axis})
+        if parse mark is 3:
+            return (expr 1).isSpringEnabled({_axis})
+        if parse mark is 4:
+            return (expr 1).isStiffnessLimited({_axis})
+        if parse mark is 5:
+            return (expr 1).isDampingLimited({_axis})
+    set:
+        expr 1 is an instance of TranslationMotor
+        if parse mark is 1:
+            (expr 1).setMotorEnabled({_axis}, change value)
+        if parse mark is 2:
+            (expr 1).setServoEnabled({_axis}, change value)
+        if parse mark is 3:
+            (expr 1).setSpringEnabled({_axis}, change value)
+        if parse mark is 4:
+            (expr 1).setStiffnessLimited({_axis}, change value)
+        if parse mark is 5:
+            (expr 1).setDampingLimited({_axis}, change value)
+
+object property [[lib]bullet[jme]] new6dof rotation motor (1¦motor|2¦servo|3¦spring|4¦stiffness|5¦damping) state:
+    return type: boolean
+    get:
+        expr 1 is an instance of RotationMotor
+        if parse mark is 1:
+            return (expr 1).isMotorEnabled()
+        if parse mark is 2:
+            return (expr 1).isServoEnabled()
+        if parse mark is 3:
+            return (expr 1).isSpringEnabled()
+        if parse mark is 4:
+            return (expr 1).isStiffnessLimited()
+        if parse mark is 5:
+            return (expr 1).isDampingLimited()
+    set:
+        expr 1 is an instance of RotationMotor
+        if parse mark is 1:
+            (expr 1).setMotorEnabled(change value)
+        if parse mark is 2:
+            (expr 1).setServoEnabled(change value)
+        if parse mark is 3:
+            (expr 1).setSpringEnabled(change value)
+        if parse mark is 4:
+            (expr 1).setStiffnessLimited(change value)
+        if parse mark is 5:
+            (expr 1).setDampingLimited(change value)
 
 ###
 PhysicsRigidBody
